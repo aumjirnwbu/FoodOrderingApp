@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 import java.sql.*;
 import java.util.*;
 import java.text.SimpleDateFormat;
@@ -8,17 +9,23 @@ import java.util.List;
 import java.lang.String;
 
 public class FoodOrderingApp {
-    private static final String DB_URL = "jdbc:sqlite:C:/Users/AumjiRnwEYE/Desktop/projectsc318/FoodOrderingApp/food_ordering.db";
+
     private JFrame frame;
     private CardLayout cardLayout;
     private JPanel cardPanel;
     private int currentUserId; // User ID of logged-in user
     // List to hold the order details
     private final DefaultListModel<String> orderList = new DefaultListModel<>();
+
+    private static final String DB_URL = "jdbc:sqlite:" + System.getProperty("user.dir") + File.separator + "food_ordering.db";
+
+    // เมธอดสำหรับเชื่อมต่อกับฐานข้อมูล
     private Connection connectToDatabase() throws SQLException {
         return DriverManager.getConnection(DB_URL);
     }
     public static void main(String[] args) {
+        FoodOrderingApp app = new FoodOrderingApp();
+        app.createDatabaseIfNotExists();
         EventQueue.invokeLater(() -> {
             try {
                 FoodOrderingApp window = new FoodOrderingApp();
@@ -31,6 +38,76 @@ public class FoodOrderingApp {
 
     public FoodOrderingApp() {
         initialize();
+    }
+    private void createDatabaseIfNotExists() {
+        File dbFile = new File(DB_URL);  // เส้นทางของไฟล์ฐานข้อมูล
+        if (!dbFile.exists()) {
+            try (Connection conn = connectToDatabase()) {
+                // สร้างคำสั่ง SQL สำหรับสร้างตาราง
+                String createUsersTableSQL =
+                        "CREATE TABLE IF NOT EXISTS users ("
+                                + "user_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                + "username VARCHAR(255) UNIQUE, "
+                                + "password VARCHAR(255), "
+                                + "cash_balance DOUBLE DEFAULT 0, "
+                                + "points DOUBLE DEFAULT 0, "
+                                + "totalspents DOUBLE DEFAULT 0"
+                                + ");";
+
+                String createFoodItemsTableSQL =
+                        "CREATE TABLE IF NOT EXISTS food_items ("
+                                + "food_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                + "name VARCHAR(100) NOT NULL, "
+                                + "description TEXT, "
+                                + "price DOUBLE NOT NULL"
+                                + ");";
+
+                String createOrdersTableSQL =
+                        "CREATE TABLE IF NOT EXISTS orders ("
+                                + "order_id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                + "user_id INTEGER, "
+                                + "food_id INTEGER, "
+                                + "quantity INTEGER NOT NULL, "
+                                + "order_status VARCHAR(50) DEFAULT 'Pending', "
+                                + "order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                                + "FOREIGN KEY(user_id) REFERENCES users(user_id), "
+                                + "FOREIGN KEY(food_id) REFERENCES food_items(food_id)"
+                                + ");";
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(createFoodItemsTableSQL);  // สร้างตาราง food_items
+                    System.out.println("food_items table created successfully!");
+
+                    // เพิ่มเมนู 10 เมนูเข้าไปในตาราง food_items
+                    String insertFoodItemsSQL =
+                            "INSERT INTO food_items (name, description, price) VALUES "
+                                    + "('Pizza', 'Delicious cheese pizza', 9.99), "
+                                    + "('Burger', 'Juicy beef burger with cheese', 5.49), "
+                                    + "('Pasta', 'Pasta with marinara sauce', 7.99), "
+                                    + "('Salad', 'Fresh garden salad', 4.99), "
+                                    + "('Sushi', 'Assorted sushi rolls', 12.99), "
+                                    + "('Steak', 'Grilled steak with vegetables', 15.99), "
+                                    + "('Sandwich', 'Ham and cheese sandwich', 3.99), "
+                                    + "('Ice Cream', 'Vanilla ice cream with chocolate sauce', 2.99), "
+                                    + "('Tacos', 'Beef tacos with toppings', 6.49), "
+                                    + "('Fried Chicken', 'Crispy fried chicken pieces', 8.49);";
+
+                    // ทำการ insert เมนูลงในตาราง
+                    stmt.executeUpdate(insertFoodItemsSQL);  // เพิ่มข้อมูล 10 เมนู
+                    System.out.println("10 food items inserted successfully!");
+                }
+                // สร้างตารางต่างๆ ในฐานข้อมูล
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(createUsersTableSQL);
+                    stmt.execute(createFoodItemsTableSQL);
+                    stmt.execute(createOrdersTableSQL);
+                    System.out.println("Database and tables created successfully at " + dbFile.getAbsolutePath());
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Database already exists at " + dbFile.getAbsolutePath());
+        }
     }
 
     private void initialize() {
